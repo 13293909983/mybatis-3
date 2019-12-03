@@ -45,6 +45,9 @@ public class DefaultVFS extends VFS {
   /** The magic header that indicates a JAR (ZIP) file. */
   private static final byte[] JAR_MAGIC = { 'P', 'K', 3, 4 };
 
+  /** The magic header that indicates a CLASS (ZIP) file. */
+  private static final byte[] CLASS_MAGIC = new byte[]{(byte)0xCA, (byte)0xFE, (byte)0xBA, (byte)0xBE,};
+
   @Override
   public boolean isValid() {
     return true;
@@ -55,7 +58,10 @@ public class DefaultVFS extends VFS {
     InputStream is = null;
     try {
       List<String> resources = new ArrayList<>();
-
+      // If a CLASS file is found, no need to list child
+      if(this.isClass(url)){
+        return resources;
+      }
       // First, try to find the URL of a JAR file containing the requested resource. If a JAR
       // file is found, then we'll list child resources by reading the JAR.
       URL jarUrl = findJarForResource(url);
@@ -346,5 +352,48 @@ public class DefaultVFS extends VFS {
     }
 
     return false;
+  }
+
+  /**
+   * Returns true if the resource located at the given URL is a CLASS file.
+   *
+   * @param url The URL of the resource to test.
+   */
+  protected boolean isClass(URL url) {
+    return this.isClass(url, new byte[CLASS_MAGIC.length]);
+  }
+
+
+  /**
+   * Returns true if the resource located at the given URL is a CLASS file.
+   *
+   * @param url The URL of the resource to test.
+   * @param buffer A buffer into which the first few bytes of the resource are read. The buffer
+   *            must be at least the size of {@link #CLASS_MAGIC}. (The same buffer may be reused
+   *            for multiple calls as an optimization.)
+   */
+  protected boolean isClass(URL url, byte[] buffer) {
+    InputStream is = null;
+
+    boolean isClass;
+    try {
+      is = url.openStream();
+      is.read(buffer, 0, CLASS_MAGIC.length);
+      if (!Arrays.equals(buffer, CLASS_MAGIC)) {
+        return false;
+      }
+      log.debug("Found CLASS: " + url);
+      isClass = true;
+    }catch (Exception var15) {
+      return false;
+    } finally {
+      try {
+        is.close();
+      } catch (Exception var14) {
+        ;
+      }
+
+    }
+    return isClass;
   }
 }
